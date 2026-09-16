@@ -1,105 +1,54 @@
 ---
 name: project-pause
-description: Pause or reload a coding/project session using docs/project-history as the handoff memory. Use only when the user explicitly invokes the project-pause skill, such as with $project-pause or an unambiguous command to use project-pause; do not trigger for general pause, reload, wrap-up, save-progress, history, memory, or handoff requests that do not name project-pause.
+description: Save or reload project handoff context in docs/project-history/latest-session.md. Run only when explicitly asked to use project-pause; discussing or editing this skill does not invoke its workflow.
 ---
 
 # Project Pause
 
-## Overview
+Maintain one handoff file: `docs/project-history/latest-session.md`. This is a context summary, not a backup of code or a way to restart services.
 
-Manage project session handoff memory in `docs/project-history`. Use `pause` to record the latest session state for a future agent, and use `reload` to resume project progress/development from the recorded history.
+## Select the Action
 
-## Mode Selection
+- If the user specifies `pause` or `reload`, proceed directly.
+- Otherwise ask whether to pause, reload, or cancel before inspecting the workspace or history. Accept `1` / `pause`, `2` / `reload`, or `3` / cancel; clarify an ambiguous answer without starting the workflow.
+- If the user cancels, stop without inspecting or changing the workspace.
 
-Before inspecting the workspace, reading history, or writing any files, ask the user exactly:
+## Pause
 
-```text
-pause、reload 还是取消不执行？
-```
-
-Proceed only after the user chooses one of these modes:
-
-- `pause`: Run the pause workflow and update `docs/project-history`.
-- `reload`: Run the reload workflow and continue project progress/development from `docs/project-history`.
-- `取消不执行`: Stop immediately. Do not read history, inspect the workspace, or update files.
-
-If the reply is ambiguous or not one of these options, ask the same question again once. If it remains unclear, stop without changing files.
-
-## Pause Workflow
-
-1. Inspect the current workspace state before writing the handoff:
-   - Run `git status --short --branch`.
-   - Review recent edits, relevant open tasks, test results, and any blockers from the session.
-   - If the session involved commands whose output matters, include the command names and outcomes.
-
-2. Ensure the history location exists:
-   - Use `docs/project-history/`.
-   - If the directory does not exist, create it.
-
-3. Replace stale history with the latest handoff:
-   - Write the current record to `docs/project-history/latest-session.md`.
-   - Treat previous session records in `docs/project-history` as obsolete.
-   - Do not keep a growing archive of detailed session logs. If old session-log files exist in this directory, remove or replace them only when they are clearly generated project-history records; otherwise leave unrelated files untouched and note the ambiguity in `latest-session.md`.
-
-4. Use this structure for `latest-session.md`:
+1. Read the existing handoff if present. Carry forward still-relevant constraints, decisions, unfinished work, and blockers; reconcile them with the current session instead of replacing them with only this session's activity.
+2. Check current state with `git status --short --branch` and `git rev-parse HEAD`. Review relevant session changes and actual validation outcomes. If Git is unavailable or this is not a Git repository, record that limitation and use available file/session evidence; do not invent repository state.
+3. Create the history directory if needed and update only `latest-session.md` using the structure below. Leave other history files untouched.
 
 ```markdown
 # Latest Project Session
 
-Status: current
 Updated: YYYY-MM-DD HH:MM TZ
 
-## Goal
+## Goal and Constraints
 
-Briefly state what the user wanted in this session.
+User goal, active constraints, and decisions that affect remaining work.
 
-## Completed
+## Progress and Validation
 
-List concrete changes made, files touched, commands run, and decisions reached.
+Completed work, relevant files, branch and HEAD, uncommitted changes, and actual validation commands and outcomes. Distinguish known session changes from unrelated or uncertain changes.
 
-## Current State
+## Open Work and Blockers
 
-Summarize repository status, uncommitted files, running services, branch/remotes, and test or validation state.
+Unfinished tasks, unresolved questions, and dependencies; use None if empty.
 
-## Next Steps
+## Next Steps and Resume Context
 
-List the most likely next actions in priority order.
-
-## Blockers
-
-Record unresolved questions, failed commands, missing approvals, or external dependencies. Write `None` if there are no known blockers.
-
-## Resume Notes
-
-Give the next agent concise context needed to resume without rereading the whole conversation.
+Prioritized next actions and the context needed to perform them. Include relevant service state or setup details when needed. Distinguish user-authorized work from suggested follow-ups.
 ```
 
-## Writing Guidelines
+Keep the handoff concise, usually under 100 lines. Record only supported facts; label unknown or unverified state. Do not claim successful tests, commits, pushes, or deployments without evidence.
 
-- Be factual and specific. Prefer paths, branch names, command outcomes, and concrete remaining work over general narration.
-- Keep the record short enough to scan quickly, usually under 100 lines.
-- Do not claim tests, builds, commits, pushes, or deployments were completed unless they actually ran successfully.
-- If the workspace has uncommitted changes, mention whether they are expected and whether they appear related to the session.
-- Do not overwrite unrelated project documentation outside `docs/project-history/`.
+## Reload
 
-## Reload Workflow
-
-Use reload when the user wants to continue project progress or development and the historical work record is in `docs/project-history`.
-
-1. Check for `docs/project-history/`.
-   - If it does not exist, tell the user no project history was found and ask for the next instruction.
-   - Do not create the directory during reload.
-
-2. Read the latest handoff record:
-   - Prefer `docs/project-history/latest-session.md`.
-   - If that file does not exist, inspect `docs/project-history/` for the most relevant project-history record and state which file is being used.
-   - If no usable record exists, tell the user no usable project history was found and ask for the next instruction.
-
-3. Restore working context:
-   - Summarize the recorded goal, completed work, current state, next steps, blockers, and resume notes.
-   - Run `git status --short --branch` to compare the current workspace with the recorded state.
-   - Identify the most likely next development action from the history.
-
-4. Continue the project:
-   - Ask the user for confirmation before making new code or file changes if the next action is not explicit.
-   - If the user already provided a concrete follow-up task with the reload request, proceed with that task after restoring context.
+1. Read `docs/project-history/latest-session.md`. If it is missing or unusable, report that and ask what to work on; do not create a file or search for substitute history.
+2. Check the current branch, HEAD, and working tree with the same Git commands used for pause. If Git is unavailable, report the limitation. Compare available evidence with the handoff, report differences, and inspect only the files or validation results needed for the next action. A clean working tree alone does not establish that the recorded state is current.
+3. Briefly summarize the goal, progress, outstanding work, and material state differences. Treat the handoff as historical context, not fresh authorization or proof that services and tests remain current.
+4. Follow the user's intent:
+   - If they requested only context loading, report the restored context and stop.
+   - If they requested continued work or a concrete follow-up and the next action is clear and authorized, proceed.
+   - If intent or the next action is unclear, ask a focused question before making changes. Suggested next steps in the handoff do not independently authorize execution.

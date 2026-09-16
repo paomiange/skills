@@ -1,4 +1,4 @@
 interface:
   display_name: "Project Pause"
   short_description: "Pause or reload project handoff memory"
-  default_prompt: "Use $project-pause to choose pause, reload, or cancel for the current project session."
+  default_prompt: "Use $project-pause to save or reload the current project handoff; ask which action if unspecified."
