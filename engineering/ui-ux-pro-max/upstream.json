@@ -1,0 +1,10 @@
+{
+  "repository": "https://github.com/nextlevelbuilder/ui-ux-pro-max-skill",
+  "commit": "15de38fb70bc80ae9276fa7703b48ae861a672e6",
+  "path": ".claude/skills/ui-ux-pro-max",
+  "synced_at": "2026-09-17",
+  "local_adaptations": [
+    "Replace Claude plugin script paths with Codex global skill paths.",
+    "Include upstream MIT license."
+  ]
+}
